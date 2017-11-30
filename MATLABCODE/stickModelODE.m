@@ -7,9 +7,16 @@ thetadot0 = 0;
 g = 9.81;
 integral=0;
 
-P = 20;
-I = 10;
-D = 6;
+zeros = [];
+poles = [-1, -1];
+K = .1;
+sys = zpk(zeros, poles, K);
+disp(sys)
+[C_pid,info] = pidtune(sys,'PID');
+P = C_pid.kp;
+I = C_pid.ki;
+D = C_pid.kd;
+disp(P)
 
 dt = .001;
 
