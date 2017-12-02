@@ -9,7 +9,7 @@ integral=0;
 PIDIntegral=0;
 dTheta = 0;
 
-randOffset = 0; %Radians of offset that the center of mass is.
+randOffset = -0.4; %Radians of offset that the center of mass is.
 
 
 % zeros = [];
@@ -19,28 +19,26 @@ sys = tf([rodLength], [0 0 -rodLength 0 g]);
 % impulse(sys)
 disp(sys)
 C_pid = pidtune(sys,'PID');
-K = 2;
-P = K*C_pid.kp
-I = K*C_pid.ki
-D = K*C_pid.kd
+P = C_pid.kp/1.5
+I = C_pid.ki/1.5
+D = C_pid.kd/1.5
 PID=0;
-DTheta_C = .04;
+DTheta_C = .005;
 error=0;
 
-dt = .001;
+dt = .0005;
 
-tEnd = 20;
+tEnd = .1;
 t=0:dt:tEnd;   % time scale
-thetaAccumulation = 0;
-thetaAccTracker = zeros(1,1+tEnd/dt);
+thetaAccumulation = t./dt;
 
 % options = odeset('Events', @springEvents);
 
-x1 = ode1(@phase1, t, [theta0 thetadot0]);
+[t1, x1] = ode45(@phase1, t, [theta0 thetadot0]);
 
 hold on;
 %Plot phase 1
-plot(t,x1(:,1)); %Plot mass
+plot(t1,x1(:,1)); %Plot mass
 
 figure
 posx = rodLength*sin(x1(:,1));
@@ -69,27 +67,23 @@ end
 
 function dValues=phase1(t,M)
     theta = M(1);
-    thetadot = M(2);  
-    trans= 0;
-    if t > 10
-        trans = .1;
-    end
+    thetadot = M(2);
+    PID = (P*error + D*thetadot + 0*I*integral);
     dTheta = -PID*DTheta_C;
-    thetaAccumulation = thetaAccumulation+dTheta*dt;
-    thetaAccTracker(round(t/dt)+1) = thetaAccumulation;
+    
+    thetaAccumulation(round(t)+2) = thetaAccumulation(round(t)+1)+dTheta*dt;
 %     thetaAccumulation[t] = thetaAccumulation;
-    error = theta+trans+thetaAccumulation;
+    error = theta;
     integral = integral+(error)*dt;
-    PID = (P*error + D*thetadot + 0*I*integral)
+    PID = (P*error + D*thetadot + 0*I*integral);
 %     PIDIntegral = PIDIntegral + I_PID*(PID+PIDIntegral)*dt;
  
     a = g*sin(theta+randOffset) + PID;
 
     dValues=[thetadot; a];
 end
+
 figure
-plot(t, thetaAccTracker);
-xlabel('Time');
-ylabel('Theta Error');
+plot(t, thetaAccumulation);
 
 end
