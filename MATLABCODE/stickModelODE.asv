@@ -1,44 +1,58 @@
 function stickModelODE
-clear
+close all
 m = 1;
-theta0 = .3; %Radians
+theta0 = .1; %Radians
 rodLength = .3;
 thetadot0 = 0;
+C0 = 0;
 g = 9.81;
 integral=0;
-PIDIntegral=0;
-dTheta = 0;
 
-randOffset = -0.4; %Radians of offset that the center of mass is.
+randOffset = 0.1; %Radians of offset that the center of mass is.
 
 
-% zeros = [];
-% poles = [-1, -1, 1i, -1i];
-% K = .01;
 sys = tf([rodLength], [0 0 -rodLength 0 g]);
-% impulse(sys)
+
 disp(sys)
 C_pid = pidtune(sys,'PID');
-P = C_pid.kp/1.5
-I = C_pid.ki/1.5
-D = C_pid.kd/1.5
-PID=0;
-DTheta_C = .005;
+K = 1;
+P = K*C_pid.kp;
+D = K*C_pid.kd;
+K_c = -.00002;
+K_t = -.00004;
+    
+prevC_2 = 0;
+prevThetadot=0;
 error=0;
 
-dt = .0005;
+dt = .001;
 
-tEnd = .1;
+tEnd = 20;
 t=0:dt:tEnd;   % time scale
-thetaAccumulation = t./dt;
+offset = 0;
+C = 0;
+
+w = 0;
+wTracker = zeros(1,1+tEnd/dt);
 
 % options = odeset('Events', @springEvents);
 
-[t1, x1] = ode45(@phase1, t, [theta0 thetadot0]);
+x1 = ode1(@phase1, t, [theta0 thetadot0]);
 
 hold on;
-%Plot phase 1
-plot(t1,x1(:,1)); %Plot mass
+
+plot(t,x1(:,1)); %Plot position
+xlabel('Time');
+ylabel('Angle');
+
+figure
+plot(t, x1(:,2));
+xlabel('Time');
+ylabel('ThetaDot');
+
+figure
+dy=diff(transpose(x1(:,2)))./diff(t);
+plot(t(2:end),dy)
 
 figure
 posx = rodLength*sin(x1(:,1));
@@ -68,22 +82,30 @@ end
 function dValues=phase1(t,M)
     theta = M(1);
     thetadot = M(2);
-    PID = (P*error + D*thetadot + 0*I*integral);
-    dTheta = -PID*DTheta_C;
-    
-    thetaAccumulation(round(t)+2) = thetaAccumulation(round(t)+1)+dTheta*dt;
-%     thetaAccumulation[t] = thetaAccumulation;
-    error = theta;
+   
+    offset = offset + K_c*w + C*K_t;
+    w = w + C*dt;
+    wTracker(round(t/dt)+1) = w;
+    error = theta+offset;
     integral = integral+(error)*dt;
-    PID = (P*error + D*thetadot + 0*I*integral);
-%     PIDIntegral = PIDIntegral + I_PID*(PID+PIDIntegral)*dt;
- 
-    a = g*sin(theta+randOffset) + PID;
 
+    C = P*(theta+offset) + D*thetadot;
+    TC = 5;
+    if C > TC
+        C = TC;
+    end
+    if C < -TC
+        C = -TC;
+    end
+    
+    sys = g*sin(theta+randOffset);
+    a = sys + C;
     dValues=[thetadot; a];
 end
 
 figure
-plot(t, thetaAccumulation);
+plot(t, wTracker);
+xlabel('Time');
+ylabel('Accumulated Controller Error');
 
 end
