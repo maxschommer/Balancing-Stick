@@ -1,9 +1,8 @@
 function stickModelODE
 close all
 dt = .001;
-tEnd = 40;
+tEnd = 80;
 t=0:dt:tEnd;   % time scale
-
 
 m = 1;
 theta0 = .1; %Radians
@@ -12,7 +11,7 @@ thetadot0 = 0;
 C0 = 0;
 g = 9.81;
 integral=0;
-randOffset = 0.1; %Radians of offset that the center of mass is.
+randOffset = 0; %Radians of offset that the center of mass is.
 
 sys = tf([rodLength], [0 0 -rodLength 0 g]);
 
@@ -21,8 +20,8 @@ C_pid = pidtune(sys,'PID');
 K = 1;
 P = K*C_pid.kp;
 D = K*C_pid.kd;
-K_c = -.00002;
-K_t = -.00004;
+I_w = -.00002;
+P_c = -.00004;
 offset = 0;
 C = 0;
 w = 0;
@@ -70,7 +69,7 @@ function dValues=phase1(t,M)
     theta = M(1);
     thetadot = M(2);
    
-    offset = offset + K_c*w + C*K_t;
+    offset = offset + I_w*w + P_c*C;
     w = w + C*dt;
     wTracker(round(t/dt)+1) = w;
     error = theta+offset;
@@ -86,13 +85,13 @@ function dValues=phase1(t,M)
     end
     
     sys = g*sin(theta+randOffset);
-    a = sys + C;
+    a = sys + C/m;
     dValues=[thetadot; a];
 end
 
 figure
 plot(t, wTracker);
 xlabel('Time');
-ylabel('Accumulated Controller Error');
+ylabel('Velocity of Reaction Wheel');
 
 end

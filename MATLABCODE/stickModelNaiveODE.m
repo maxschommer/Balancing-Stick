@@ -1,15 +1,17 @@
 function stickModelODE
 close all
+dt = .001;
+tEnd = 1;
+t=0:dt:tEnd;   % time scale
+
 m = 1;
-theta0 = .1; %Radians
+theta0 = 0; %Radians
 rodLength = .3;
 thetadot0 = 0;
 C0 = 0;
 g = 9.81;
 integral=0;
-
 randOffset = 0.1; %Radians of offset that the center of mass is.
-
 
 sys = tf([rodLength], [0 0 -rodLength 0 g]);
 
@@ -18,28 +20,16 @@ C_pid = pidtune(sys,'PID');
 K = 1;
 P = K*C_pid.kp;
 D = K*C_pid.kd;
-K_c = -.00002;
-K_t = -.00004;
-    
-prevC_2 = 0;
-prevThetadot=0;
-error=0;
-
-dt = .001;
-
-tEnd = 20;
-t=0:dt:tEnd;   % time scale
+I = K*C_pid.ki;
+I_w = -.00002;
+P_c = -.00004;
 offset = 0;
 C = 0;
-
 w = 0;
+error=0;
 wTracker = zeros(1,1+tEnd/dt);
 
-% options = odeset('Events', @springEvents);
-
 x1 = ode1(@phase1, t, [theta0 thetadot0]);
-
-hold on;
 
 plot(t,x1(:,1)); %Plot position
 xlabel('Time');
@@ -48,11 +38,13 @@ ylabel('Angle');
 figure
 plot(t, x1(:,2));
 xlabel('Time');
-ylabel('ThetaDot');
+ylabel('Alpha');
 
 figure
 dy=diff(transpose(x1(:,2)))./diff(t);
 plot(t(2:end),dy)
+xlabel('Time');
+ylabel('dAlpha/dt');
 
 figure
 posx = rodLength*sin(x1(:,1));
@@ -62,12 +54,9 @@ axisLength =rodLength*1.25;
 
 axis([-axisLength, axisLength, -axisLength, axisLength])
 pbaspect([1,1,1])
-% axis(ax, 'square')
-% comet(posx, posy)
 
 h = animatedline('Marker', 'o');
 b = animatedline;
-
 
 for k = 1:10:length(posx)
     addpoints(h,posx(k),posy(k));
@@ -82,30 +71,18 @@ end
 function dValues=phase1(t,M)
     theta = M(1);
     thetadot = M(2);
-   
-    offset = offset + K_c*w + C*K_t;
+    integral = integral + theta*dt;
+    C = P*(theta) + D*thetadot + I * integral;
     w = w + C*dt;
     wTracker(round(t/dt)+1) = w;
-    error = theta+offset;
-    integral = integral+(error)*dt;
-
-    C = P*(theta+offset) + D*thetadot;
-    TC = 5;
-    if C > TC
-        C = TC;
-    end
-    if C < -TC
-        C = -TC;
-    end
-    
     sys = g*sin(theta+randOffset);
-    a = sys + C;
+    a = sys + C + 1;
     dValues=[thetadot; a];
 end
 
 figure
 plot(t, wTracker);
 xlabel('Time');
-ylabel('Accumulated Controller Error');
+ylabel('Velocity of Reaction Wheel');
 
 end
